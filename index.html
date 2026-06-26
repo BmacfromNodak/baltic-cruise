@@ -204,6 +204,11 @@ main{max-width:1080px; margin:0 auto; padding:36px 24px 80px;}
 .vote-results-option{font-weight:700; min-width:140px;}
 .vote-results-names{color:#444;}
 .vote-results-empty{color:#8a8270; font-style:italic;}
+.vote-status-row{display:flex; flex-wrap:wrap; gap:6px; align-items:baseline; margin-bottom:4px; font-size:14px;}
+.vote-status-label{font-weight:700; min-width:80px;}
+.vote-status-picked .vote-status-label{color:var(--should);}
+.vote-status-declined .vote-status-label{color:#9a5a4a;}
+.vote-status-names{color:#444;}
 .map-modal-close{
   position:absolute; top:-44px; right:0; background:var(--parchment); color:var(--navy);
   border:none; border-radius:20px; padding:8px 16px; font-weight:700; cursor:pointer;
@@ -414,8 +419,10 @@ function render(){
             `<div class="act-links" style="margin-top:8px;">
               <a class="act-link" href="javascript:void(0)" onclick="openVoteModal('${VASA_ABBA_FORM_URL}')">🗳️ Vote: Vasa or ABBA?</a>
             </div>` : ''}
+          ${item.activity === 'Vasa Museum' ?
+            `<div class="vote-results" id="vasaResults"><div class="vote-results-title">Group status</div><div class="vote-results-empty">Loading...</div></div>` : ''}
           ${item.activity === 'ABBA The Museum (alternate to Vasa)' ?
-            `<div class="vote-results" id="vasaAbbaResults"><div class="vote-results-title">Current picks</div><div class="vote-results-empty">Loading...</div></div>` : ''}
+            `<div class="vote-results" id="abbaResults"><div class="vote-results-title">Group status</div><div class="vote-results-empty">Loading...</div></div>` : ''}
           <div class="act-attendees">${item.attendees.map(p=>`<span class="att-pill">${p}</span>`).join('')}</div>
         </div>
       </div>`;
@@ -466,8 +473,9 @@ voteModalOverlay.addEventListener('click', (e)=>{ if(e.target === voteModalOverl
 /* ---- Live vote results (Vasa vs ABBA pilot) ---- */
 const VASA_ABBA_SHEET_ID = '1dL7I1HuHlcKtY-LkZb_mVgbbX0M1Qv8HSTRh6_5heWY';
 function loadVasaAbbaResults(){
-  const el = document.getElementById('vasaAbbaResults');
-  if(!el) return;
+  const vasaEl = document.getElementById('vasaResults');
+  const abbaEl = document.getElementById('abbaResults');
+  if(!vasaEl || !abbaEl) return;
   const url = `https://docs.google.com/spreadsheets/d/${VASA_ABBA_SHEET_ID}/gviz/tq?tqx=out:json`;
   fetch(url).then(r => r.text()).then(text => {
     const jsonStr = text.match(/setResponse\(([\s\S]*)\);?\s*$/)[1];
@@ -483,18 +491,34 @@ function loadVasaAbbaResults(){
       if(!picks[choice]) picks[choice] = [];
       if(!picks[choice].includes(name)) picks[choice].push(name);
     });
-    const options = Object.keys(picks);
-    if(options.length === 0){
-      el.innerHTML = `<div class="vote-results-title">Current picks</div><div class="vote-results-empty">No votes yet \u2014 be the first!</div>`;
-      return;
+
+    const optionKeys = Object.keys(picks);
+    const vasaKey = optionKeys.find(k => /vasa/i.test(k));
+    const abbaKey = optionKeys.find(k => /abba/i.test(k));
+    const vasaNames = vasaKey ? picks[vasaKey] : [];
+    const abbaNames = abbaKey ? picks[abbaKey] : [];
+
+    function renderCard(el, pickedNames, declinedNames){
+      if(pickedNames.length === 0 && declinedNames.length === 0){
+        el.innerHTML = `<div class="vote-results-title">Group status</div><div class="vote-results-empty">No votes yet \u2014 be the first!</div>`;
+        return;
+      }
+      let html = `<div class="vote-results-title">Group status</div>`;
+      if(pickedNames.length){
+        html += `<div class="vote-status-row vote-status-picked"><span class="vote-status-label">\u2705 Picked:</span><span class="vote-status-names">${pickedNames.join(', ')}</span></div>`;
+      }
+      if(declinedNames.length){
+        html += `<div class="vote-status-row vote-status-declined"><span class="vote-status-label">\u274c Declined:</span><span class="vote-status-names">${declinedNames.join(', ')}</span></div>`;
+      }
+      el.innerHTML = html;
     }
-    let html = `<div class="vote-results-title">Current picks</div>`;
-    options.forEach(opt => {
-      html += `<div class="vote-results-row"><span class="vote-results-option">${opt}:</span><span class="vote-results-names">${picks[opt].join(', ')}</span></div>`;
-    });
-    el.innerHTML = html;
+
+    renderCard(vasaEl, vasaNames, abbaNames);
+    renderCard(abbaEl, abbaNames, vasaNames);
   }).catch(err => {
-    el.innerHTML = `<div class="vote-results-title">Current picks</div><div class="vote-results-empty">Couldn't load results right now.</div>`;
+    const msg = `<div class="vote-results-title">Group status</div><div class="vote-results-empty">Couldn't load results right now.</div>`;
+    vasaEl.innerHTML = msg;
+    abbaEl.innerHTML = msg;
     console.error('vote results error', err);
   });
 }
