@@ -637,6 +637,7 @@ function setupScrollSpy(){
 render();
 setupScrollSpy();
 loadVoteResults();
+setInterval(loadVoteResults, 15000); // refresh vote results every 15 seconds
 </script>
 </body>
 </html>
