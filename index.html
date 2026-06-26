@@ -479,6 +479,7 @@ function loadVasaAbbaResults(){
       const name = cells[1] && cells[1].v ? String(cells[1].v).trim() : null;
       const choice = cells[2] && cells[2].v ? String(cells[2].v).trim() : null;
       if(!name || !choice) return;
+      if(name.toLowerCase() === 'your name') return; // skip header artifact row
       if(!picks[choice]) picks[choice] = [];
       if(!picks[choice].includes(name)) picks[choice].push(name);
     });
