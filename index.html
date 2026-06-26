@@ -132,6 +132,9 @@ h1.title{
 .route-nav-link:hover .route-dot-mark{transform:scale(1.15); background:var(--coral); border-color:var(--parchment);}
 .route-port-label{font-size:13px; font-weight:600; color:#d9e0d8;}
 .route-nav-link:hover .route-port-label{color:var(--parchment);}
+.route-nav-link.active .route-dot-mark{background:var(--coral); border-color:var(--parchment); transform:scale(1.1);}
+.route-nav-link.active .route-port-label{color:var(--parchment); font-weight:700;}
+.route-nav-link.active .route-day-label{color:var(--coral);}
 .route-nav-link--sea{cursor:default;}
 .route-dot-mark--sea{
   background:transparent; border-style:dashed; display:flex; align-items:center; justify-content:center;
@@ -397,7 +400,7 @@ function buildRoute(){
       </li>`;
     } else {
       html += `<li class="route-nav-item">
-        <a class="route-nav-link" href="#section-${slug(stop.port)}">
+        <a class="route-nav-link" data-port-slug="${slug(stop.port)}" href="#section-${slug(stop.port)}">
           <span class="route-day-label">DAY ${stop.day}</span>
           <span class="route-dot-mark"></span>
           <span class="route-port-label">${stop.port.split(' / ')[0]}</span>
@@ -609,7 +612,30 @@ function loadVoteResults(){
 buildRoute();
 buildJumpFab();
 buildSources();
+/* ---- Scrollspy: highlight + auto-scroll sticky nav as user scrolls through days ---- */
+function setupScrollSpy(){
+  const sections = document.querySelectorAll('.port-section');
+  if(!sections.length) return;
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if(!entry.isIntersecting) return;
+      const portSlug = entry.target.id.replace('section-', '');
+      const navLinks = document.querySelectorAll('.route-nav-link[data-port-slug]');
+      navLinks.forEach(link => link.classList.remove('active'));
+      const activeLink = document.querySelector(`.route-nav-link[data-port-slug="${portSlug}"]`);
+      if(activeLink){
+        activeLink.classList.add('active');
+        activeLink.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+      }
+    });
+  }, { root: null, rootMargin: '-120px 0px -70% 0px', threshold: 0 });
+
+  sections.forEach(section => observer.observe(section));
+}
+
 render();
+setupScrollSpy();
 loadVoteResults();
 </script>
 </body>
