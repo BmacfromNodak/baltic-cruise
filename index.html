@@ -307,7 +307,10 @@ const SUMMARY = [{"Port": "Copenhagen", "Port Window": "Thu arrival ~2:00 PM; Fr
 const SOURCES = [{"Source / Link": "https://www.visitcopenhagen.com/copenhagen/planning/nyhavn-gdk474735", "Used For": "Nyhavn / Copenhagen planning", "Notes": "Official tourism info"}, {"Source / Link": "https://www.stromma.com/en-dk/copenhagen/sightseeing/sightseeing-by-boat/grand-tour/", "Used For": "Copenhagen canal tour", "Notes": "Tour operator / timing check"}, {"Source / Link": "https://www.tivoli.dk/en", "Used For": "Tivoli Gardens", "Notes": "Official site"}, {"Source / Link": "https://www.visitoslo.com/en/product/?tlp=2983043&name=Vigeland-Sculpture-Park", "Used For": "Vigeland Park", "Notes": "Official museum site"}, {"Source / Link": "https://www.visitnorway.com/places-to-go/eastern-norway/oslo/oslo-opera-house/", "Used For": "Oslo Opera House", "Notes": "Official site"}, {"Source / Link": "https://www.paradoxmuseumoslo.com/en/", "Used For": "Paradox Museum Oslo", "Notes": "Official site"}, {"Source / Link": "https://visitgdansk.com/top-10-atrakcji", "Used For": "Gdańsk planning", "Notes": "Official tourism info"}, {"Source / Link": "https://mariacki.com/en/", "Used For": "St. Mary’s Church", "Notes": "Official church site"}, {"Source / Link": "https://whc.unesco.org/en/list/994/", "Used For": "Curonian Spit", "Notes": "UNESCO World Heritage listing"}, {"Source / Link": "https://www.maptrotting.com/nida-guide-baltic-coast/", "Used For": "Nida village", "Notes": "Independent travel guide"}, {"Source / Link": "https://klaipedatravel.lt/en/", "Used For": "Klaipėda Old Town", "Notes": "Official tourism info"}, {"Source / Link": "https://www.liveriga.com/en/", "Used For": "Riga planning", "Notes": "Official tourism info"}, {"Source / Link": "https://melngalvjunams.lv/en/", "Used For": "House of the Blackheads", "Notes": "Official site"}, {"Source / Link": "https://centraltirgus.lv/en/", "Used For": "Riga Central Market", "Notes": "Official site"}, {"Source / Link": "https://www.vasamuseet.se/en", "Used For": "Vasa Museum", "Notes": "Official site"}, {"Source / Link": "https://www.visitstockholm.com/", "Used For": "Stockholm / Gamla Stan planning", "Notes": "Official tourism info"}, {"Source / Link": "https://visittallinn.ee/eng", "Used For": "Tallinn planning", "Notes": "Official tourism info"}, {"Source / Link": "https://meremuuseum.ee/lennusadam/en/", "Used For": "Seaplane Harbour Museum", "Notes": "Official site"}, {"Source / Link": "https://www.suomenlinna.fi/en/", "Used For": "Suomenlinna", "Notes": "Official site"}, {"Source / Link": "https://www.myhelsinki.fi/en", "Used For": "Helsinki planning", "Notes": "Official tourism info"}];
 
 const PORTS = [...new Set(ITINERARY.map(i => i.port))];
-const VOTE_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc6KjS-z6QvDpy6ditjyUoZdmThrj0D3OEZiB-u3LN7n_vepw/viewform?embedded=true';
+const VOTE_FORM_URLS = {
+  vasa_abba:    'https://docs.google.com/forms/d/e/1FAIpQLSc6KjS-z6QvDpy6ditjyUoZdmThrj0D3OEZiB-u3LN7n_vepw/viewform?embedded=true',
+  tivoli_hotel: 'https://docs.google.com/forms/d/e/1FAIpQLScoA2jPsn18Gg6JW3Q2o5hzNR-ZdbH0h0BxsTVjIarr8LXERg/viewform?embedded=true'
+};
 
 
 function slug(s){ return s.toLowerCase().replace(/[^a-z0-9]+/g,'-'); }
@@ -417,7 +420,7 @@ function render(){
           ${item.notes ? `<div class="act-notes">⚓ ${item.notes}</div>` : ''}
           ${item.voteGroup ?
             `<div class="act-links" style="margin-top:8px;">
-              <a class="act-link" href="javascript:void(0)" onclick="openVoteModal('${VOTE_FORM_URL}')">🗳️ Vote on this</a>
+              <a class="act-link" href="javascript:void(0)" onclick="openVoteModal('${VOTE_FORM_URLS[item.voteGroup]}')">🗳️ Vote on this</a>
             </div>
             <div class="vote-results" id="voteResult_${item.voteGroup}_${item.voteRole}"><div class="vote-results-title">Group status</div><div class="vote-results-empty">Loading...</div></div>` : ''}
           <div class="act-attendees">${item.attendees.map(p=>`<span class="att-pill">${p}</span>`).join('')}</div>
@@ -467,83 +470,60 @@ function closeVoteModal(){
 document.getElementById('voteModalClose').addEventListener('click', closeVoteModal);
 voteModalOverlay.addEventListener('click', (e)=>{ if(e.target === voteModalOverlay) closeVoteModal(); });
 
-/* ---- Live vote results (generic, supports multiple vote groups) ---- */
+/* ---- Live vote results (generic, supports multiple vote groups, each with its own sheet tab) ---- */
 const VOTE_SHEET_ID = '1dL7I1HuHlcKtY-LkZb_mVgbbX0M1Qv8HSTRh6_5heWY';
 const VOTE_GROUPS = [
-  { id: 'vasa_abba',    questionMatch: /vasa|abba/i,            aMatch: /vasa/i,                 bMatch: /abba/i },
-  { id: 'tivoli_hotel', questionMatch: /tivoli|hotel|admiral/i, aMatch: /tivoli/i,                bMatch: /hotel|admiral/i }
+  { id: 'vasa_abba',    sheetName: 'Form Responses 1', aMatch: /vasa/i,  bMatch: /abba/i },
+  { id: 'tivoli_hotel', sheetName: 'Form Responses 2', aMatch: /tivoli/i, bMatch: /hotel|admiral/i }
 ];
 
-function loadVoteResults(){
-  const url = `https://docs.google.com/spreadsheets/d/${VOTE_SHEET_ID}/gviz/tq?tqx=out:json`;
+function showVoteError(group){
+  ['A','B'].forEach(role => {
+    const el = document.getElementById(`voteResult_${group.id}_${role}`);
+    if(el) el.innerHTML = `<div class="vote-results-title">Group status</div><div class="vote-results-empty">Couldn't load results right now.</div>`;
+  });
+}
 
-  function showError(){
-    VOTE_GROUPS.forEach(g => {
-      ['A','B'].forEach(role => {
-        const el = document.getElementById(`voteResult_${g.id}_${role}`);
-        if(el) el.innerHTML = `<div class="vote-results-title">Group status</div><div class="vote-results-empty">Couldn't load results right now.</div>`;
-      });
-    });
+function renderVoteCard(el, picked, declined){
+  if(!el) return;
+  if(picked.length === 0 && declined.length === 0){
+    el.innerHTML = `<div class="vote-results-title">Group status</div><div class="vote-results-empty">No votes yet \u2014 be the first!</div>`;
+    return;
   }
+  let html = `<div class="vote-results-title">Group status</div>`;
+  if(picked.length) html += `<div class="vote-status-row vote-status-picked"><span class="vote-status-label">\u2705 Picked:</span><span class="vote-status-names">${picked.join(', ')}</span></div>`;
+  if(declined.length) html += `<div class="vote-status-row vote-status-declined"><span class="vote-status-label">\u274c Declined:</span><span class="vote-status-names">${declined.join(', ')}</span></div>`;
+  el.innerHTML = html;
+}
 
-  fetch(url).then(r => r.text()).then(text => {
-    const match = text.match(/setResponse\(([\s\S]*)\);?\s*$/);
-    if(!match) { showError(); return; }
-    const data = JSON.parse(match[1]);
-    const rows = data.table.rows || [];
-    if(rows.length === 0) { showError(); return; }
+function loadVoteResults(){
+  VOTE_GROUPS.forEach(group => {
+    const elA = document.getElementById(`voteResult_${group.id}_A`);
+    const elB = document.getElementById(`voteResult_${group.id}_B`);
+    if(!elA && !elB) return;
 
-    const headerRow = rows[0].c || [];
-    const dataRows = rows.slice(1);
-
-    VOTE_GROUPS.forEach(group => {
-      // find the column whose header question text matches this group's topic
-      let colIdx = -1;
-      headerRow.forEach((cell, idx) => {
-        const text = cell && cell.v ? String(cell.v) : '';
-        if(idx >= 2 && colIdx === -1 && group.questionMatch.test(text)) colIdx = idx;
-      });
-
-      const elA = document.getElementById(`voteResult_${group.id}_A`);
-      const elB = document.getElementById(`voteResult_${group.id}_B`);
-      if(!elA && !elB) return;
-
-      if(colIdx === -1){
-        const msg = `<div class="vote-results-title">Group status</div><div class="vote-results-empty">No votes yet \u2014 be the first!</div>`;
-        if(elA) elA.innerHTML = msg;
-        if(elB) elB.innerHTML = msg;
-        return;
-      }
-
+    const url = `https://docs.google.com/spreadsheets/d/${VOTE_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(group.sheetName)}`;
+    fetch(url).then(r => r.text()).then(text => {
+      const match = text.match(/setResponse\(([\s\S]*)\);?\s*$/);
+      if(!match) { showVoteError(group); return; }
+      const data = JSON.parse(match[1]);
+      const rows = data.table.rows || [];
       const namesA = [], namesB = [];
-      dataRows.forEach(row => {
+      rows.forEach(row => {
         const cells = row.c || [];
         const name = cells[1] && cells[1].v ? String(cells[1].v).trim() : null;
-        const answer = cells[colIdx] && cells[colIdx].v ? String(cells[colIdx].v).trim() : null;
+        const answer = cells[2] && cells[2].v ? String(cells[2].v).trim() : null;
         if(!name || !answer) return;
-        if(name.toLowerCase() === 'your name') return;
+        if(name.toLowerCase() === 'your name') return; // header artifact row
         if(group.aMatch.test(answer) && !namesA.includes(name)) namesA.push(name);
         else if(group.bMatch.test(answer) && !namesB.includes(name)) namesB.push(name);
       });
-
-      function renderCard(el, picked, declined){
-        if(!el) return;
-        if(picked.length === 0 && declined.length === 0){
-          el.innerHTML = `<div class="vote-results-title">Group status</div><div class="vote-results-empty">No votes yet \u2014 be the first!</div>`;
-          return;
-        }
-        let html = `<div class="vote-results-title">Group status</div>`;
-        if(picked.length) html += `<div class="vote-status-row vote-status-picked"><span class="vote-status-label">\u2705 Picked:</span><span class="vote-status-names">${picked.join(', ')}</span></div>`;
-        if(declined.length) html += `<div class="vote-status-row vote-status-declined"><span class="vote-status-label">\u274c Declined:</span><span class="vote-status-names">${declined.join(', ')}</span></div>`;
-        el.innerHTML = html;
-      }
-
-      renderCard(elA, namesA, namesB);
-      renderCard(elB, namesB, namesA);
+      renderVoteCard(elA, namesA, namesB);
+      renderVoteCard(elB, namesB, namesA);
+    }).catch(err => {
+      showVoteError(group);
+      console.error('vote results error', group.id, err);
     });
-  }).catch(err => {
-    showError();
-    console.error('vote results error', err);
   });
 }
 
